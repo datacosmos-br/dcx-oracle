@@ -5,9 +5,12 @@
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/datacosmos-br/dcx-oracle/main/install.sh | bash
 #
+# This script installs dcx first (if not present), then installs the oracle plugin.
+#
 # Options:
 #   --prefix PATH     Installation prefix (default: ~/.local/share/dcx/plugins)
 #   --version X.Y.Z   Install specific version (default: latest)
+#   --skip-dcx        Skip dcx installation (for internal use)
 #   --help            Show this help message
 #===============================================================================
 
@@ -19,6 +22,9 @@ set -eo pipefail
 
 PLUGIN_NAME="oracle"
 REPO="datacosmos-br/dcx-oracle"
+DCX_REPO="datacosmos-br/dcx"
+DCX_INSTALL_URL="https://raw.githubusercontent.com/${DCX_REPO}/main/install.sh"
+
 # Support both dcx locations (prefer dcx standard)
 if [[ -d "${XDG_CONFIG_HOME:-$HOME/.config}/dcx/plugins" ]]; then
     DEFAULT_PREFIX="${XDG_CONFIG_HOME:-$HOME/.config}/dcx/plugins"
@@ -56,6 +62,7 @@ _fatal() { _error "$*"; exit 1; }
 
 PREFIX="$DEFAULT_PREFIX"
 VERSION=""
+SKIP_DCX=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -67,6 +74,10 @@ while [[ $# -gt 0 ]]; do
             VERSION="$2"
             shift 2
             ;;
+        --skip-dcx)
+            SKIP_DCX=true
+            shift
+            ;;
         --help|-h)
             cat << EOF
 dcx Oracle Plugin Installer
@@ -76,22 +87,24 @@ Usage: $0 [OPTIONS]
 Options:
   --prefix PATH     Installation prefix (default: ~/.local/share/dcx/plugins)
   --version X.Y.Z   Install specific version (default: latest)
+  --skip-dcx        Skip dcx installation (assumes dcx is already installed)
   --help            Show this help message
 
 Examples:
-  # Install latest from GitHub
+  # Install dcx + oracle plugin (recommended)
   curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh | bash
 
   # Install to custom prefix
   ./install.sh --prefix /opt/dcx/plugins
 
   # Install specific version
-  ./install.sh --version 1.0.0
+  ./install.sh --version 0.0.1
 EOF
             exit 0
             ;;
         *)
-            _fatal "Unknown option: $1"
+            _warn "Unknown option: $1"
+            shift
             ;;
     esac
 done
@@ -139,6 +152,39 @@ echo ""
 _info "Checking dependencies..."
 command -v curl &>/dev/null || command -v wget &>/dev/null || _fatal "curl or wget required"
 command -v tar &>/dev/null || _fatal "tar required"
+
+#===============================================================================
+# INSTALL DCX FIRST (if not present)
+#===============================================================================
+
+if [[ "$SKIP_DCX" != "true" ]]; then
+    if ! command -v dcx &>/dev/null; then
+        _info "dcx not found, installing dcx first..."
+        echo ""
+
+        if command -v curl &>/dev/null; then
+            curl -fsSL "$DCX_INSTALL_URL" | bash
+        elif command -v wget &>/dev/null; then
+            wget -qO- "$DCX_INSTALL_URL" | bash
+        fi
+
+        echo ""
+        _info "Continuing with oracle plugin installation..."
+        echo ""
+
+        # Update PATH to find newly installed dcx
+        export PATH="$HOME/.local/bin:$PATH"
+
+        # Update prefix to use dcx standard location
+        if [[ -d "${XDG_CONFIG_HOME:-$HOME/.config}/dcx/plugins" ]]; then
+            PREFIX="${XDG_CONFIG_HOME:-$HOME/.config}/dcx/plugins"
+        elif [[ -d "$HOME/.local/share/dcx" ]]; then
+            PREFIX="$HOME/.local/share/dcx/plugins"
+        fi
+    else
+        _log "dcx already installed: $(dcx --version 2>/dev/null || echo 'unknown version')"
+    fi
+fi
 
 # Determine version
 if [[ -z "$VERSION" ]]; then
@@ -197,7 +243,7 @@ chmod +x "$INSTALL_DIR"/commands/*.sh 2>/dev/null || true
 _log "Plugin installed successfully!"
 
 echo ""
-echo "Installation complete!"
+echo -e "${GREEN}Installation complete!${NC}"
 echo ""
 echo "Usage:"
 echo "  dcx oracle validate     # Validate Oracle environment"
@@ -206,8 +252,9 @@ echo "  dcx oracle migrate      # Data Pump migration"
 echo "  dcx oracle --help       # Show all commands"
 echo ""
 
-# Check if dcx is installed
-if ! command -v dcx &>/dev/null; then
-    _warn "dcx not found in PATH"
-    echo "Install dcx first: https://github.com/datacosmos-br/dcx"
+# Verify dcx can see the plugin
+if command -v dcx &>/dev/null; then
+    if dcx plugin list 2>/dev/null | grep -q oracle; then
+        _log "Plugin registered with dcx"
+    fi
 fi
