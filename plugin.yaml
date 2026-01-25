@@ -1,0 +1,45 @@
+# DCX Oracle Plugin
+# =============================================================================
+# Oracle automation for RMAN restore, Data Pump migrations, SQL execution
+# Part of the DCX ecosystem: https://github.com/datacosmos-br/dc-scripts
+# =============================================================================
+
+name: oracle
+version: 0.0.1
+description: "Oracle automation for RMAN restore, Data Pump, SQL execution, RAC support"
+author: "DataCosmos"
+homepage: "https://github.com/datacosmos-br/dcx-oracle"
+license: "MIT"
+
+# DCX version requirement
+requires:
+  dcx: ">=0.0.1"
+
+# Available commands (dcx oracle <command>)
+commands:
+  - restore     # RMAN restore/clone from backup
+  - migrate     # Data Pump migration (network link or dumpfiles)
+  - validate    # Validate Oracle environment
+  - keyring     # Credential management
+  - sql         # Execute SQL statements
+  - rman        # Execute RMAN commands
+
+# Plugin capabilities
+capabilities:
+  - rman_restore      # Full RMAN restore/clone operations
+  - rman_recovery     # Point-in-time recovery (PITR)
+  - datapump_export   # Data Pump export operations
+  - datapump_import   # Data Pump import operations
+  - instance_mgmt     # Instance start/stop/status
+  - rac_support       # RAC/srvctl integration
+  - oci_integration   # OCI Object Storage support
+  - credential_mgmt   # Secure credential storage
+
+# Environment requirements
+environment:
+  required:
+    - ORACLE_HOME     # Oracle installation directory
+  optional:
+    - ORACLE_SID      # Default database SID
+    - ORACLE_BASE     # Oracle base directory
+    - TNS_ADMIN       # TNS configuration directory
