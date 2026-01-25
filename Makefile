@@ -1,12 +1,12 @@
 #===============================================================================
-# DCX Oracle Plugin - Makefile
+# dcx Oracle Plugin - Makefile
 #===============================================================================
 # Targets:
 #   lint       - Run shellcheck on all .sh files
 #   test       - Run test suite
 #   validate   - Run lint + syntax + tests
-#   install    - Install plugin to DCX
-#   uninstall  - Remove plugin from DCX
+#   install    - Install plugin to dcx
+#   uninstall  - Remove plugin from dcx
 #   release    - Create release tarball
 #   clean      - Remove build artifacts
 #===============================================================================
@@ -16,7 +16,7 @@
 # Configuration
 PLUGIN_NAME := oracle
 VERSION := $(shell cat VERSION 2>/dev/null || echo "1.0.0")
-DCX_PLUGIN_DIR := $(HOME)/.local/share/DCX/plugins/$(PLUGIN_NAME)
+DCX_PLUGIN_DIR := $(HOME)/.local/share/dcx/plugins/$(PLUGIN_NAME)
 
 # Colors
 GREEN := \033[0;32m
@@ -105,7 +105,7 @@ clean:
 #===============================================================================
 
 help:
-	@echo "DCX Oracle Plugin - Makefile"
+	@echo "dcx Oracle Plugin - Makefile"
 	@echo ""
 	@echo "Usage: make [target]"
 	@echo ""
@@ -116,8 +116,8 @@ help:
 	@echo "  validate   Run lint + syntax + tests"
 	@echo ""
 	@echo "Installation:"
-	@echo "  install    Install plugin to DCX (~/.local/share/DCX/plugins/)"
-	@echo "  uninstall  Remove plugin from DCX"
+	@echo "  install    Install plugin to dcx (~/.local/share/dcx/plugins/)"
+	@echo "  uninstall  Remove plugin from dcx"
 	@echo ""
 	@echo "Release:"
 	@echo "  release    Create release tarball"

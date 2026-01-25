@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 #===============================================================================
-# DCX Oracle Plugin - Queue Module Tests
+# dcx Oracle Plugin - Queue Module Tests
 #
 # Tests the queue.sh module functionality for parallel job execution.
 #===============================================================================

@@ -1,7 +1,7 @@
-# DCX Oracle Plugin
+# dcx Oracle Plugin
 # =============================================================================
 # Oracle automation for RMAN restore, Data Pump migrations, SQL execution
-# Part of the DCX ecosystem: https://github.com/datacosmos-br/dc-scripts
+# Part of the dcx ecosystem: https://github.com/datacosmos-br/dcx
 # =============================================================================
 
 name: oracle
@@ -11,9 +11,9 @@ author: "DataCosmos"
 homepage: "https://github.com/datacosmos-br/dcx-oracle"
 license: "MIT"
 
-# DCX version requirement
+# dcx version requirement
 requires:
-  dcx: ">=0.0.1"
+  dcx: "==0.0.1"
 
 # Available commands (dcx oracle <command>)
 commands:

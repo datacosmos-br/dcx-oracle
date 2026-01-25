@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 #===============================================================================
-# DCX Oracle Plugin - Oracle Module Tests
+# dcx Oracle Plugin - Oracle Module Tests
 #
 # Validates oracle.sh functions using mocked Oracle environment.
 # Does NOT require actual Oracle installation for most tests.

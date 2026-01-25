@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #===============================================================================
-# DCX Oracle Plugin Installer
+# dcx Oracle Plugin Installer
 #===============================================================================
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/datacosmos-br/dcx-oracle/main/install.sh | bash
 #
 # Options:
-#   --prefix PATH     Installation prefix (default: ~/.local/share/DCX/plugins)
+#   --prefix PATH     Installation prefix (default: ~/.local/share/dcx/plugins)
 #   --version X.Y.Z   Install specific version (default: latest)
 #   --help            Show this help message
 #===============================================================================
@@ -19,11 +19,11 @@ set -eo pipefail
 
 PLUGIN_NAME="oracle"
 REPO="datacosmos-br/dcx-oracle"
-# Support both DCX locations (prefer dc-scripts standard)
-if [[ -d "${XDG_CONFIG_HOME:-$HOME/.config}/dc-scripts/plugins" ]]; then
-    DEFAULT_PREFIX="${XDG_CONFIG_HOME:-$HOME/.config}/dc-scripts/plugins"
+# Support both dcx locations (prefer dcx standard)
+if [[ -d "${XDG_CONFIG_HOME:-$HOME/.config}/dcx/plugins" ]]; then
+    DEFAULT_PREFIX="${XDG_CONFIG_HOME:-$HOME/.config}/dcx/plugins"
 else
-    DEFAULT_PREFIX="${HOME}/.local/share/DCX/plugins"
+    DEFAULT_PREFIX="${HOME}/.local/share/dcx/plugins"
 fi
 
 #===============================================================================
@@ -69,12 +69,12 @@ while [[ $# -gt 0 ]]; do
             ;;
         --help|-h)
             cat << EOF
-DCX Oracle Plugin Installer
+dcx Oracle Plugin Installer
 
 Usage: $0 [OPTIONS]
 
 Options:
-  --prefix PATH     Installation prefix (default: ~/.local/share/DCX/plugins)
+  --prefix PATH     Installation prefix (default: ~/.local/share/dcx/plugins)
   --version X.Y.Z   Install specific version (default: latest)
   --help            Show this help message
 
@@ -131,7 +131,7 @@ _get_latest_version() {
 #===============================================================================
 
 echo ""
-echo -e "${CYAN}DCX Oracle Plugin Installer${NC}"
+echo -e "${CYAN}dcx Oracle Plugin Installer${NC}"
 echo "========================================"
 echo ""
 
@@ -206,8 +206,8 @@ echo "  dcx oracle migrate      # Data Pump migration"
 echo "  dcx oracle --help       # Show all commands"
 echo ""
 
-# Check if DCX is installed
+# Check if dcx is installed
 if ! command -v dcx &>/dev/null; then
-    _warn "DCX not found in PATH"
-    echo "Install DCX first: https://github.com/datacosmos-br/dc-scripts"
+    _warn "dcx not found in PATH"
+    echo "Install dcx first: https://github.com/datacosmos-br/dcx"
 fi

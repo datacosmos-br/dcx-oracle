@@ -25,7 +25,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="${SCRIPT_DIR}/.."
 PLUGIN_LIB="${PLUGIN_DIR}/lib"
 
-# Load DCX infrastructure or fallbacks
+# Load dcx infrastructure or fallbacks
 if [[ -z "${DC_LIB_DIR:-}" ]]; then
     log_info() { echo "[INFO] $*"; }
     log_error() { echo "[ERROR] $*" >&2; }

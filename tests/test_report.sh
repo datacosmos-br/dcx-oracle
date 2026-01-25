@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 #===============================================================================
-# DCX Oracle Plugin - Report Module Tests
+# dcx Oracle Plugin - Report Module Tests
 #
 # Tests the report.sh module functionality.
 #===============================================================================

@@ -1,6 +1,6 @@
-# DCX Oracle Plugin
+# dcx Oracle Plugin
 
-Oracle automation plugin for [DCX](https://github.com/datacosmos-br/dc-scripts) - RMAN restore/clone, Data Pump migrations, SQL execution, and more.
+Oracle automation plugin for [dcx](https://github.com/datacosmos-br/dcx) - RMAN restore/clone, Data Pump migrations, SQL execution, and more.
 
 ## Features
 
@@ -13,7 +13,7 @@ Oracle automation plugin for [DCX](https://github.com/datacosmos-br/dc-scripts) 
 
 ## Installation
 
-### Via DCX Plugin Manager
+### Via dcx Plugin Manager
 
 ```bash
 dcx plugin install oracle
@@ -69,7 +69,7 @@ dcx oracle keyring get PROD_PASSWORD
 
 ## Requirements
 
-- **DCX** >= 0.0.1
+- **dcx** == 0.0.1
 - **Oracle Client** or **Oracle Home** with sqlplus, rman, impdp, expdp
 - **Bash** >= 4.0
 
@@ -103,4 +103,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Related
 
-- [DCX (dc-scripts)](https://github.com/datacosmos-br/dc-scripts) - Parent project
+- [dcx](https://github.com/datacosmos-br/dcx) - Parent project

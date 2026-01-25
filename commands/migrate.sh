@@ -45,16 +45,16 @@
 set -euo pipefail
 
 #===============================================================================
-# SECTION 1: Initialization (DCX Plugin)
+# SECTION 1: Initialization (dcx Plugin)
 #===============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="${SCRIPT_DIR}/.."
 PLUGIN_LIB="${PLUGIN_DIR}/lib"
 
-# Load DCX infrastructure if available (provides logging, runtime, config)
+# Load dcx infrastructure if available (provides logging, runtime, config)
 if [[ -n "${DC_LIB_DIR:-}" ]]; then
-    # DCX is loaded - use its infrastructure
+    # dcx is loaded - use its infrastructure
     :
 else
     # Standalone mode - define minimal fallbacks

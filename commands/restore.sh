@@ -44,15 +44,15 @@
 set -Eeuo pipefail
 
 #===============================================================================
-# LIBRARY LOADING (DCX Plugin)
+# LIBRARY LOADING (dcx Plugin)
 #===============================================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="${SCRIPT_DIR}/.."
 PLUGIN_LIB="${PLUGIN_DIR}/lib"
 
-# Load DCX infrastructure if available (provides logging, runtime, config)
+# Load dcx infrastructure if available (provides logging, runtime, config)
 if [[ -n "${DC_LIB_DIR:-}" ]]; then
-    # DCX is loaded - use its infrastructure
+    # dcx is loaded - use its infrastructure
     :
 else
     # Standalone mode - define minimal fallbacks
@@ -79,7 +79,7 @@ source "${PLUGIN_LIB}/session.sh"
 
 # Load plugin defaults if available
 if [[ -f "${PLUGIN_DIR}/etc/defaults.yaml" ]] && command -v yq &>/dev/null; then
-    : # Config loaded via DCX yq
+    : # Config loaded via dcx yq
 fi
 
 # Load hierarchical config if available

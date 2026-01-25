@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 #===============================================================================
-# DCX Oracle Plugin - Master Test Runner
+# dcx Oracle Plugin - Master Test Runner
 #
 # Executes all test scripts and provides summary.
 #
@@ -23,7 +23,7 @@ TOTAL_FAIL=0
 FAILED_TESTS=()
 
 echo "========================================"
-echo "  DCX Oracle Plugin Test Suite"
+echo "  dcx Oracle Plugin Test Suite"
 echo "========================================"
 echo
 echo "Plugin Directory: ${PLUGIN_DIR}"

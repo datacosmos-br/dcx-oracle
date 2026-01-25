@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 #===============================================================================
-# DCX Oracle Plugin - Unified Module Loader
+# dcx Oracle Plugin - Unified Module Loader
 #===============================================================================
 # File    : oracle.sh
 # Version : 2.0.0
@@ -9,7 +9,7 @@
 #===============================================================================
 #
 # DESCRIPTION:
-#   Unified loader and facade for all Oracle-related modules in the DCX plugin.
+#   Unified loader and facade for all Oracle-related modules in the dcx plugin.
 #   This module automatically loads all core Oracle sub-modules and provides
 #   convenience functions for Oracle operations.
 #
@@ -27,11 +27,11 @@
 #   - oracle_rman.sh    : RMAN backup/restore
 #   - oracle_oci.sh     : OCI Object Storage
 #
-# DCX INTEGRATION:
-#   This module inherits from DCX infrastructure:
+# dcx INTEGRATION:
+#   This module inherits from dcx infrastructure:
 #   - Logging: log_info, log_error, log_debug, etc.
 #   - Runtime: need_cmd, assert_file, retry, timeout_cmd
-#   - Config: config_get, config_set via DCX's yq
+#   - Config: config_get, config_set via dcx's yq
 #   - UI: gum for spinners, confirmations, prompts
 #
 # USAGE:
@@ -52,14 +52,14 @@ __ORACLE_LOADED=1
 _ORACLE_LIB_DIR="${BASH_SOURCE[0]%/*}"
 
 #===============================================================================
-# DCX INFRASTRUCTURE CHECK
+# dcx INFRASTRUCTURE CHECK
 #===============================================================================
 
-# Verify DCX functions are available (inherited from DCX)
+# Verify dcx functions are available (inherited from dcx)
 _oracle_check_dcx() {
-    # Check for essential DCX functions
+    # Check for essential dcx functions
     if ! type -t log_info &>/dev/null; then
-        # DCX not loaded - define minimal fallbacks
+        # dcx not loaded - define minimal fallbacks
         log_info() { echo "[INFO] $*"; }
         log_error() { echo "[ERROR] $*" >&2; }
         log_warn() { echo "[WARN] $*" >&2; }
@@ -254,7 +254,7 @@ oracle_list_loaded() {
 
 # oracle_version - Print Oracle module versions
 oracle_version() {
-    echo "DCX Oracle Plugin v2.0.0"
+    echo "dcx Oracle Plugin v2.0.0"
     echo "  oracle.sh         : 2.0.0 (Unified loader)"
     echo "  oracle_core.sh    : 1.0.0 (Base functionality)"
     echo "  oracle_env.sh     : 1.0.0 (Environment management)"
@@ -268,4 +268,4 @@ oracle_version() {
 # AUTO-INITIALIZATION
 #===============================================================================
 
-log_debug "DCX Oracle unified module loaded (v2.0.0)"
+log_debug "dcx Oracle unified module loaded (v2.0.0)"
