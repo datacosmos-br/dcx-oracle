@@ -134,6 +134,12 @@ DP_TABLE_EXISTS_ACTION="${DP_TABLE_EXISTS_ACTION:-REPLACE}"
 DP_LOGTIME="${DP_LOGTIME:-ALL}"
 DP_METRICS="${DP_METRICS:-Y}"
 
+# Progress tracking variables
+_DP_PROGRESS_TOTAL=0
+_DP_PROGRESS_DESCRIPTION=""
+_DP_PROGRESS_START_TIME=0
+_DP_GUM_BIN=""
+
 #===============================================================================
 # SECTION 2: Command Discovery
 #===============================================================================
@@ -189,6 +195,124 @@ dp_discover_commands() {
     fi
 
     log_success "Data Pump discovered: impdp=${IMPDP_CMD}, expdp=${EXPDP_CMD}"
+}
+
+#===============================================================================
+# SECTION 2.5: Progress Tracking
+#===============================================================================
+
+# _dp_is_tty - Check if running in terminal (stdout is TTY)
+# Usage: if _dp_is_tty; then ...
+# Returns: 0 if TTY, 1 if not (piped/redirected)
+_dp_is_tty() {
+    [[ -t 1 ]]
+}
+
+# _dp_discover_gum - Find gum binary if available
+# Usage: _dp_discover_gum
+# Sets: _DP_GUM_BIN global variable
+_dp_discover_gum() {
+    # Try to find gum via DCX infrastructure
+    if type -t _dc_find_binary &>/dev/null; then
+        _DP_GUM_BIN=$(_dc_find_binary gum 2>/dev/null) || _DP_GUM_BIN=""
+    elif type -t oracle_core_get_binary &>/dev/null; then
+        _DP_GUM_BIN=$(oracle_core_get_binary gum 2>/dev/null) || _DP_GUM_BIN=""
+    else
+        # Fallback to which
+        _DP_GUM_BIN=$(which gum 2>/dev/null) || _DP_GUM_BIN=""
+    fi
+}
+
+# _dp_progress_init - Initialize progress tracking
+# Usage: _dp_progress_init "total" "description"
+# Args: total - Total items (e.g., 100 for percentage)
+#       description - What's being tracked
+_dp_progress_init() {
+    local total="$1"
+    local description="$2"
+
+    _DP_PROGRESS_TOTAL="${total}"
+    _DP_PROGRESS_DESCRIPTION="${description}"
+    _DP_PROGRESS_START_TIME=$(date +%s)
+
+    # Discover gum if not already done
+    [[ -z "${_DP_GUM_BIN}" ]] && _dp_discover_gum
+
+    # Only show initialization if TTY
+    if _dp_is_tty && [[ -n "${_DP_GUM_BIN}" ]]; then
+        "${_DP_GUM_BIN}" style --bold "Starting: ${description}"
+    fi
+}
+
+# _dp_format_eta - Format ETA in human-readable format
+# Usage: eta_str=$(_dp_format_eta "seconds_remaining")
+_dp_format_eta() {
+    local seconds="$1"
+
+    if [[ "${seconds}" -lt 60 ]]; then
+        echo "${seconds}s"
+    elif [[ "${seconds}" -lt 3600 ]]; then
+        printf "%dm %ds" $((seconds / 60)) $((seconds % 60))
+    else
+        printf "%dh %dm" $((seconds / 3600)) $(( (seconds % 3600) / 60 ))
+    fi
+}
+
+# _dp_progress_update - Update progress bar
+# Usage: _dp_progress_update "current"
+# Args: current - Current progress (e.g., 45 for 45%)
+_dp_progress_update() {
+    local current="$1"
+
+    # Skip if not TTY
+    _dp_is_tty || return 0
+
+    # Calculate ETA
+    local elapsed=$(($(date +%s) - _DP_PROGRESS_START_TIME))
+    local eta=""
+
+    if [[ "${current}" -gt 0 ]] && [[ "${_DP_PROGRESS_TOTAL}" -gt 0 ]]; then
+        local remaining=$(((_DP_PROGRESS_TOTAL - current) * elapsed / current))
+        eta=" | ETA: $(_dp_format_eta "${remaining}")"
+    fi
+
+    # Show progress with gum if available
+    if [[ -n "${_DP_GUM_BIN}" ]]; then
+        "${_DP_GUM_BIN}" style --bold "Progress: ${current}/${_DP_PROGRESS_TOTAL}${eta}"
+    else
+        # Fallback to plain text
+        echo "Progress: ${current}/${_DP_PROGRESS_TOTAL}${eta}"
+    fi
+}
+
+# _dp_progress_done - Complete progress tracking
+# Usage: _dp_progress_done
+_dp_progress_done() {
+    _dp_is_tty || return 0
+
+    local duration=$(($(date +%s) - _DP_PROGRESS_START_TIME))
+    local duration_str
+    duration_str=$(_dp_format_eta "${duration}")
+
+    if [[ -n "${_DP_GUM_BIN}" ]]; then
+        "${_DP_GUM_BIN}" style --bold --foreground 2 "✓ ${_DP_PROGRESS_DESCRIPTION} completed in ${duration_str}"
+    else
+        echo "✓ ${_DP_PROGRESS_DESCRIPTION} completed in ${duration_str}"
+    fi
+}
+
+# _dp_progress_spin - Show indeterminate spinner
+# Usage: _dp_progress_spin "title" command [args...]
+_dp_progress_spin() {
+    local title="$1"
+    shift
+
+    if _dp_is_tty && [[ -n "${_DP_GUM_BIN}" ]]; then
+        "${_DP_GUM_BIN}" spin --spinner dot --title "${title}" -- "$@"
+    else
+        # Just run the command
+        "$@"
+    fi
 }
 
 #===============================================================================
