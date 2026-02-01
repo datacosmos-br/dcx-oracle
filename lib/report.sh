@@ -78,8 +78,8 @@ REPORT_CONSOLE_WIDTH="${REPORT_CONSOLE_WIDTH:-70}"
 # _report_validate_param - Validate parameter presence
 # Usage: _report_validate_param "$value" "param_name" [allow_empty]
 _report_validate_param() {
-    local value="$1"
-    local param_name="$2"
+    local value="${1?ERROR: _report_validate_param requires value parameter}"
+    local param_name="${2?ERROR: _report_validate_param requires param_name parameter}"
     local allow_empty="${3:-0}"
 
     if [[ -z "${value}" ]] && [[ ${allow_empty} -eq 0 ]]; then
@@ -89,7 +89,7 @@ _report_validate_param() {
 
 # validate_item_status - Validate item status value
 validate_item_status() {
-    local status="$1"
+    local status="${1?ERROR: validate_item_status requires status parameter}"
     case "${status}" in
         ok|success|fail|error|skip|warn|warning) return 0 ;;
         *) die "ERROR: Invalid item status '${status}' (expected: ok|fail|skip|warn)" ;;
@@ -98,7 +98,7 @@ validate_item_status() {
 
 # validate_metric_operation - Validate metric operation
 validate_metric_operation() {
-    local operation="$1"
+    local operation="${1?ERROR: validate_metric_operation requires operation parameter}"
     case "${operation}" in
         set|add|max|min) return 0 ;;
         *) die "ERROR: Invalid metric operation '${operation}' (expected: set|add|max|min)" ;;
@@ -107,21 +107,21 @@ validate_metric_operation() {
 
 # validate_confirmation_token - Validate confirmation token format
 validate_confirmation_token() {
-    local token="$1"
+    local token="${1?ERROR: validate_confirmation_token requires token parameter}"
     [[ -n "${token}" ]] || die "ERROR: Confirmation token cannot be empty"
 }
 
 # validate_selection_choice - Validate selection choice is within range
 validate_selection_choice() {
-    local choice="$1"
-    local max_options="$2"
+    local choice="${1?ERROR: validate_selection_choice requires choice parameter}"
+    local max_options="${2?ERROR: validate_selection_choice requires max_options parameter}"
     [[ "${choice}" =~ ^[0-9]+$ ]] || die "ERROR: Selection must be numeric"
     [[ ${choice} -ge 0 && ${choice} -lt ${max_options} ]] || die "ERROR: Selection out of range (0-$((max_options-1)))"
 }
 
 # validate_output_format - Validate output format
 validate_output_format() {
-    local format="$1"
+    local format="${1?ERROR: validate_output_format requires format parameter}"
     case "${format}" in
         md|markdown|json|text) return 0 ;;
         *) die "ERROR: Invalid output format '${format}' (expected: md|json|text)" ;;
@@ -130,13 +130,13 @@ validate_output_format() {
 
 # validate_file_exists - Validate file exists
 validate_file_exists() {
-    local file="$1"
+    local file="${1?ERROR: validate_file_exists requires file parameter}"
     [[ -f "${file}" ]] || die "ERROR: File not found: ${file}"
 }
 
 # validate_directory_exists - Validate directory exists
 validate_directory_exists() {
-    local dir="$1"
+    local dir="${1?ERROR: validate_directory_exists requires dir parameter}"
     [[ -d "${dir}" ]] || die "ERROR: Directory not found: ${dir}"
 }
 
@@ -147,8 +147,8 @@ validate_directory_exists() {
 # report_init - Initialize workflow/report system
 # Usage: report_init "Title" "/output/dir" ["session_id"]
 report_init() {
-    local title="$1"
-    local output_dir="$2"
+    local title="${1?ERROR: report_init requires title parameter}"
+    local output_dir="${2?ERROR: report_init requires output_dir parameter}"
     local session="${3:-$(date +%Y%m%d_%H%M%S)}"
 
     _R_TITLE="${title}"
@@ -183,7 +183,8 @@ report_meta() {
 # report_get_meta - Get metadata value
 # Usage: value=$(report_get_meta "key")
 report_get_meta() {
-    echo "${_R_META["$1"]:-}"
+    local key="${1?ERROR: report_get_meta requires key parameter}"
+    echo "${_R_META["${key}"]:-}"
 }
 
 #===============================================================================
@@ -331,7 +332,8 @@ report_metric() {
 # report_metric_get - Get metric value
 # Usage: value=$(report_metric_get "key")
 report_metric_get() {
-    echo "${_R_METRICS["$1"]:-0}"
+    local key="${1?ERROR: report_metric_get requires key parameter}"
+    echo "${_R_METRICS["${key}"]:-0}"
 }
 
 #===============================================================================
