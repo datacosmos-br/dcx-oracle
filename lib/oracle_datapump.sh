@@ -562,11 +562,22 @@ dp_execute_import_networklink() {
     # Log command info (hide connection credentials)
     log_cmd "impdp" "***@*** parfile=${effective_parfile} network_link=${network_link}${scn:+ flashback_scn=${scn}}"
 
+    # Initialize progress tracking
+    _dp_progress_init 100 "Importing ${parfile_name}"
+
     # Execute with timing and logging
     local start_time=$(date +%s)
     local exit_code
-    runtime_exec_logged_to_file "Import: ${parfile_name}" "${log_file}" "${IMPDP_CMD}" "${args[@]}"
-    exit_code=$?
+
+    # Use spinner for indeterminate progress during execution
+    if _dp_is_tty && [[ -n "${_DP_GUM_BIN}" ]]; then
+        runtime_exec_logged_to_file "Import: ${parfile_name}" "${log_file}" "${IMPDP_CMD}" "${args[@]}"
+        exit_code=$?
+    else
+        runtime_exec_logged_to_file "Import: ${parfile_name}" "${log_file}" "${IMPDP_CMD}" "${args[@]}"
+        exit_code=$?
+    fi
+
     local duration=$(($(date +%s) - start_time))
 
     # Analyze log for metrics
@@ -581,6 +592,7 @@ dp_execute_import_networklink() {
         report_track_metric "dp_duration_secs" "${duration}" "add"
 
         if [[ ${exit_code} -eq 0 ]]; then
+            _dp_progress_done
             report_track_step_done 0 "Imported ${rows} rows in ${duration}s${throughput:+ (${throughput} MB/s)}"
             report_track_item "ok" "${parfile_name}" "${rows} rows, ${duration}s${throughput:+, ${throughput} MB/s}"
         else
@@ -589,6 +601,7 @@ dp_execute_import_networklink() {
         fi
     else
         if [[ ${exit_code} -eq 0 ]]; then
+            _dp_progress_done
             report_track_step_done 0 "Completed in ${duration}s"
             report_track_item "ok" "${parfile_name}" "${duration}s"
         else
@@ -652,6 +665,9 @@ dp_execute_export_oci() {
     # Log command info (hide credentials)
     log_cmd "expdp" "***@*** parfile=${effective_parfile} dumpfile=oci://...${scn:+ flashback_scn=${scn}}"
 
+    # Initialize progress tracking
+    _dp_progress_init 100 "Exporting ${parfile_name}"
+
     # Execute with timing and logging
     local start_time=$(date +%s)
     local exit_code
@@ -668,6 +684,7 @@ dp_execute_export_oci() {
     report_track_metric "dp_duration_secs" "${duration}" "add"
 
     if [[ ${exit_code} -eq 0 ]]; then
+        _dp_progress_done
         report_track_step_done 0 "Exported in ${duration}s"
         report_track_item "ok" "${parfile_name}" "${duration}s"
     else
@@ -726,6 +743,9 @@ dp_execute_import_oci() {
     # Log command info (hide credentials)
     log_cmd "impdp" "***@*** parfile=${effective_parfile} dumpfile=oci://..."
 
+    # Initialize progress tracking
+    _dp_progress_init 100 "Importing ${parfile_name} from OCI"
+
     # Execute with timing and logging
     local start_time=$(date +%s)
     local exit_code
@@ -745,6 +765,7 @@ dp_execute_import_oci() {
         report_track_metric "dp_duration_secs" "${duration}" "add"
 
         if [[ ${exit_code} -eq 0 ]]; then
+            _dp_progress_done
             report_track_step_done 0 "Imported ${rows} rows in ${duration}s${throughput:+ (${throughput} MB/s)}"
             report_track_item "ok" "${parfile_name}" "${rows} rows, ${duration}s${throughput:+, ${throughput} MB/s}"
         else
@@ -753,6 +774,7 @@ dp_execute_import_oci() {
         fi
     else
         if [[ ${exit_code} -eq 0 ]]; then
+            _dp_progress_done
             report_track_step_done 0 "Completed in ${duration}s"
             report_track_item "ok" "${parfile_name}" "${duration}s"
         else
@@ -977,6 +999,9 @@ dp_execute_batch_parallel() {
 
     log_info "Starting parallel import of ${total} parfiles (max concurrent: ${max_concurrent})"
 
+    # Initialize batch progress tracking
+    _dp_progress_init "${total}" "Batch import (${total} parfiles)"
+
     # Define callback for queue_run_parallel
     _dp_import_callback() {
         local _idx="$1"  # Index unused but required by callback signature
@@ -1012,6 +1037,7 @@ dp_execute_batch_parallel() {
     report_track_metric "dp_parfiles_failed" "${failed}" "set"
 
     if [[ ${failed} -eq 0 ]]; then
+        _dp_progress_done
         report_track_step_done 0 "All ${total} parfiles imported successfully"
         report_track_item "ok" "Batch Import" "${success}/${total} succeeded"
     else
