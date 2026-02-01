@@ -639,7 +639,16 @@ phase_validate_and_restore() {
     # Load previous execution state (from DRY_RUN=1 or previous run)
     _rman_state_load || log_debug "No previous execution state found"
 
-    # Validate PITR parameters if specified
+    # Skip preview/validate if --resume-from=restore or later
+    # When resuming from restore/recover, catalog is already done and validate was
+    # either already run (DRY_RUN=1 previous run) or intentionally skipped
+    local skip_validation=0
+    if [[ "${RESUME_FROM:-}" == "restore" || "${RESUME_FROM:-}" == "recover" ]]; then
+        skip_validation=1
+        log_info "[SKIP] Preview/Validate: Skipped due to --resume-from=${RESUME_FROM}"
+    fi
+
+    # Validate PITR parameters if specified (always run, even in skip mode)
     if [[ -n "${UNTIL_TIME:-}" || -n "${UNTIL_SCN:-}" ]]; then
         report_step "Validating Point-in-Time Recovery parameters"
         if ! oracle_rman_validate_pitr; then
@@ -653,8 +662,8 @@ phase_validate_and_restore() {
         report_step_done 0
     fi
 
-    # Check catalog divergence (optional re-crosscheck)
-    if ! oracle_rman_check_catalog_divergence; then
+    # Check catalog divergence (skip if resume mode)
+    if [[ "${skip_validation}" -eq 0 ]] && ! oracle_rman_check_catalog_divergence; then
         report_step "Checking catalog state"
         if report_confirm "Catalog may be stale. Re-run crosscheck?" "YES"; then
             write_rman_crosscheck
@@ -671,8 +680,9 @@ phase_validate_and_restore() {
     #   0 = Pula validate, executa restore direto
     #
     # --resume-from controla DE ONDE COMEÇA (independente do DRY_RUN)
+    # When skip_validation=1, skip preview/validate regardless of DRY_RUN
 
-    if [[ "${DRY_RUN}" == "1" ]]; then
+    if [[ "${DRY_RUN}" == "1" && "${skip_validation}" -eq 0 ]]; then
         # DRY_RUN=1: Executa preview + validate e para
         report_step "Running restore preview"
         oracle_rman_exec_with_state "PREVIEW" "${RMAN_PRE}" "${LOGDIR}/03_preview.log" "Restore Preview"
@@ -703,8 +713,10 @@ phase_validate_and_restore() {
         exit 0
     fi
 
-    # DRY_RUN=0: Pula validate, vai direto para restore
-    log_info "[SKIP] Preview/Validate: DRY_RUN=0 pula validação e executa restore"
+    # DRY_RUN=0 or skip_validation=1: Skip validate, go to restore
+    if [[ "${skip_validation}" -eq 0 ]]; then
+        log_info "[SKIP] Preview/Validate: DRY_RUN=0 skips validation, executing restore"
+    fi
 
     # Step: Space check
     report_step "Checking available space"
