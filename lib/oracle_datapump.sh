@@ -391,28 +391,34 @@ dp_get_scn() {
 #===============================================================================
 
 # dp_get_table_sizes - Get sizes of tables in a schema
-# Usage: dp_get_table_sizes "connection" "schema" "output_file"
+# Usage: dp_get_table_sizes "connection" "schema" "output_file" ["network_link"]
 # Returns: 0 on success, 1 on failure. Output file format: TABLE_NAME|SIZE_MB
 dp_get_table_sizes() {
 	local connection="$1"
 	local schema="$2"
 	local output_file="$3"
+	local network_link="${4:-}"
 
 	rt_assert_nonempty "connection" "${connection}"
 	rt_assert_nonempty "schema" "${schema}"
 	rt_assert_nonempty "output_file" "${output_file}"
 
+	local table_source="dba_segments"
+	if [[ -n "${network_link}" ]]; then
+		table_source="dba_segments@${network_link}"
+	fi
+
 	local sql_query="
         SET HEADING OFF FEEDBACK OFF PAGESIZE 0 LINESIZE 200
         SELECT segment_name || '|' || ROUND(SUM(bytes)/1024/1024, 2)
-        FROM dba_segments
+        FROM ${table_source}
         WHERE owner = UPPER('${schema}')
           AND segment_type IN ('TABLE', 'TABLE PARTITION', 'TABLE SUBPARTITION')
         GROUP BY segment_name
         ORDER BY 2 DESC;
     "
 
-	log_debug "Querying table sizes for schema: ${schema}"
+	log_debug "Querying table sizes for schema: ${schema} (source: ${table_source})"
 	oracle_sql_spool "${output_file}" "${sql_query}" "${connection}"
 }
 
@@ -1174,21 +1180,98 @@ dp_execute_batch_optimized() {
 
 	# 1. Get all parfiles
 	mapfile -t all_parfiles < <(dp_list_parfiles "${parfiles_dir}")
+	local total_files=${#all_parfiles[@]}
 
-	# 2. Extract table names from parfiles (simplified assumption: 1 table per parfile for this strategy)
-	# In a more complex scenario, we would parse the parfile content.
+	if [[ ${total_files} -eq 0 ]]; then
+		log_warn "Nenhum parfile encontrado para otimizar"
+		return 0
+	fi
 
-	# 3. Process batches
-	# For this iteration, we'll use standard parallel execution but integrated with progress.
-	# The full categorization logic requires a DB connection to check sizes.
+	# 2. Get table sizes from SOURCE via network link
+	local sizes_file="${log_dir}/table_sizes.txt"
+	# Assume schema is the user in connection? No, migration might be cross-schema.
+	# We'll try to extract schema from the first parfile or assume current user.
+	# For simplicity, let's assume we query the schema defined in DB_ADMIN_USER variable (exported by migrate.sh)
+	# or fallback to extracting from connection string.
+	local schema_user
+	schema_user=$(echo "${connection}" | sed -E 's|^([^/]+)/.*|\1|')
 
-	dp_execute_batch_parallel "${connection}" "${all_parfiles[@]}" \
-		--network-link "${network_link}" \
-		--scn "${scn}" \
-		--directory "${directory}" \
-		--max-concurrent "${max_concurrent}" \
-		--metadata-only "${metadata_only}" \
-		--log-dir "${log_dir}"
+	if dp_get_table_sizes "${connection}" "${schema_user}" "${sizes_file}" "${network_link}"; then
+		log_debug "Tamanhos de tabela obtidos com sucesso"
+	else
+		log_warn "Falha ao obter tamanhos de tabela via ${network_link}. Usando execução padrão."
+		dp_execute_batch_parallel "${connection}" "${all_parfiles[@]}" \
+			--network-link "${network_link}" \
+			--scn "${scn}" \
+			--directory "${directory}" \
+			--max-concurrent "${max_concurrent}" \
+			--metadata-only "${metadata_only}" \
+			--log-dir "${log_dir}"
+		return $?
+	fi
+
+	# 3. Categorize
+	dp_categorize_tables "${sizes_file}" 100 1000
+	# _DP_ANTS and _DP_ELEPHANTS are now populated with TABLE NAMES
+
+	# 4. Split parfiles
+	local ants_parfiles=()
+	local elephants_parfiles=()
+
+	# Create lookup associative array for fast checking
+	declare -A is_ant
+	for tbl in "${_DP_ANTS[@]}"; do is_ant["$tbl"]=1; done
+
+	for parfile in "${all_parfiles[@]}"; do
+		local filename
+		filename=$(basename "${parfile}" .par)
+		# Heuristic: parfile name matches table name?
+		# This is a strong assumption. If it fails, we default to elephant.
+		if [[ -n "${is_ant[$filename]:-}" ]]; then
+			ants_parfiles+=("${parfile}")
+		else
+			elephants_parfiles+=("${parfile}")
+		fi
+	done
+
+	local n_ants=${#ants_parfiles[@]}
+	local n_elephants=${#elephants_parfiles[@]}
+
+	log_info "Classificação: ${n_ants} Formigas, ${n_elephants} Elefantes"
+
+	# 5. Execute Elephants (High Parallel, Low Concurrent)
+	if [[ ${n_elephants} -gt 0 ]]; then
+		log_phase "Processando Elefantes (Tabelas Grandes)"
+		# Use configured max_concurrent and parallel degree
+		dp_execute_batch_parallel "${connection}" "${elephants_parfiles[@]}" \
+			--network-link "${network_link}" \
+			--scn "${scn}" \
+			--directory "${directory}" \
+			--max-concurrent "${max_concurrent}" \
+			--metadata-only "${metadata_only}" \
+			--log-dir "${log_dir}"
+	fi
+
+	# 6. Execute Ants (Low Parallel, High Concurrent)
+	if [[ ${n_ants} -gt 0 ]]; then
+		log_phase "Processando Formigas (Tabelas Pequenas)"
+		# Boost concurrency for small tables, reduce parallel degree to 1
+		local ant_concurrent=$((max_concurrent * 4))
+		# Backup global parallel degree
+		local old_parallel="${DP_PARALLEL_DEGREE}"
+		DP_PARALLEL_DEGREE=1
+
+		dp_execute_batch_parallel "${connection}" "${ants_parfiles[@]}" \
+			--network-link "${network_link}" \
+			--scn "${scn}" \
+			--directory "${directory}" \
+			--max-concurrent "${ant_concurrent}" \
+			--metadata-only "${metadata_only}" \
+			--log-dir "${log_dir}"
+
+		# Restore
+		DP_PARALLEL_DEGREE="${old_parallel}"
+	fi
 }
 
 # dp_analyze_batch_results - Analyze batch import results using report.sh
