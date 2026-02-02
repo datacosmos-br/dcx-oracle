@@ -72,17 +72,11 @@ fi
 source "${PLUGIN_LIB}/oracle.sh"
 
 # Load additional Oracle modules for Data Pump
-oracle_load_module datapump oci
-
-# Load support libraries
-source "${PLUGIN_LIB}/report.sh"
-source "${PLUGIN_LIB}/queue.sh"
-
-# Load Oracle libraries (oracle.sh uses core_require internally)
-core_load oracle
-
-# Load additional Oracle modules for Data Pump migration
 core_load oracle_datapump oracle_oci
+
+# Load contract and preflight modules for fail-fast validation
+source "${PLUGIN_LIB}/config_precedence.sh" || die "Failed to load config_precedence.sh"
+source "${PLUGIN_LIB}/oracle_preflight.sh" || die "Failed to load oracle_preflight.sh"
 
 # Script version
 VERSION="3.0.0"
@@ -242,25 +236,43 @@ mig_load_config() {
 		log_debug "Attempting to load secure credentials from dcx..."
 		# Export all oracle-related credentials
 		# We assume standard keys: oracle/default/admin_user, oracle/default/admin_password
-		if creds=$(dcx cred export --prefix oracle --env 2>/dev/null); then
-			eval "$creds"
-			log_debug "Loaded secure credentials from dcx vault"
 
-			# Map standard dcx cred keys to migration variables if not already set
-			# ORACLE_DEFAULT_ADMIN_USER -> DB_ADMIN_USER
-			if [[ -z "${DB_ADMIN_USER:-}" ]] && [[ -n "${ORACLE_DEFAULT_ADMIN_USER:-}" ]]; then
-				DB_ADMIN_USER="${ORACLE_DEFAULT_ADMIN_USER}"
-			fi
+		# SECURITY: Use allowlist-based parser instead of eval to prevent RCE
+		while IFS='=' read -r key value; do
+			[[ -z "$key" ]] && continue
 
-			# ORACLE_DEFAULT_ADMIN_PASSWORD -> DB_ADMIN_PASSWORD
-			if [[ -z "${DB_ADMIN_PASSWORD:-}" ]] && [[ -n "${ORACLE_DEFAULT_ADMIN_PASSWORD:-}" ]]; then
-				DB_ADMIN_PASSWORD="${ORACLE_DEFAULT_ADMIN_PASSWORD}"
-			fi
+			key="${key#export }"
 
-			# ORACLE_DEFAULT_CONNECTION_STRING -> DB_CONNECTION_STRING
-			if [[ -z "${DB_CONNECTION_STRING:-}" ]] && [[ -n "${ORACLE_DEFAULT_CONNECTION_STRING:-}" ]]; then
-				DB_CONNECTION_STRING="${ORACLE_DEFAULT_CONNECTION_STRING}"
-			fi
+			case "$key" in
+			ORACLE_* | DB_* | SOURCE_* | NETWORK_* | OCI_* | TNS_*)
+				value="${value#\'}"
+				value="${value%\'}"
+				value="${value#\"}"
+				value="${value%\"}"
+
+				declare "$key=$value"
+				log_debug "Loaded credential: $key"
+				;;
+			*)
+				log_warn "Ignoring unknown credential variable: $key"
+				;;
+			esac
+		done < <(dcx cred export --prefix oracle --env 2>/dev/null)
+
+		# Map standard dcx cred keys to migration variables if not already set
+		# ORACLE_DEFAULT_ADMIN_USER -> DB_ADMIN_USER
+		if [[ -z "${DB_ADMIN_USER:-}" ]] && [[ -n "${ORACLE_DEFAULT_ADMIN_USER:-}" ]]; then
+			DB_ADMIN_USER="${ORACLE_DEFAULT_ADMIN_USER}"
+		fi
+
+		# ORACLE_DEFAULT_ADMIN_PASSWORD -> DB_ADMIN_PASSWORD
+		if [[ -z "${DB_ADMIN_PASSWORD:-}" ]] && [[ -n "${ORACLE_DEFAULT_ADMIN_PASSWORD:-}" ]]; then
+			DB_ADMIN_PASSWORD="${ORACLE_DEFAULT_ADMIN_PASSWORD}"
+		fi
+
+		# ORACLE_DEFAULT_CONNECTION_STRING -> DB_CONNECTION_STRING
+		if [[ -z "${DB_CONNECTION_STRING:-}" ]] && [[ -n "${ORACLE_DEFAULT_CONNECTION_STRING:-}" ]]; then
+			DB_CONNECTION_STRING="${ORACLE_DEFAULT_CONNECTION_STRING}"
 		fi
 	fi
 
@@ -671,6 +683,12 @@ mig_main() {
 	# Initialize
 	mig_init_session
 	mig_load_config
+
+	# Preflight validation: fail-fast before any side effects
+	log_info "Running preflight validation..."
+	if ! oracle_preflight_check; then
+		die "Preflight validation failed - cannot proceed with migration"
+	fi
 
 	# Phase 1: Configuration
 	report_phase "Configuration & Validation"
