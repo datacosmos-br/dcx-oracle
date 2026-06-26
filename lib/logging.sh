@@ -106,6 +106,18 @@ _get_caller_context() {
 }
 
 # _check_module_log_level - Internal: check if log level is enabled for module
+_log_level_value() {
+    local raw_level="${1:-2}"
+    case "${raw_level^^}" in
+        DEBUG) echo 3 ;;
+        INFO) echo 2 ;;
+        WARN|WARNING) echo 1 ;;
+        ERROR|FATAL|QUIET) echo 0 ;;
+        0|1|2|3) echo "${raw_level}" ;;
+        *) die "ERROR: Invalid LOG_LEVEL '${raw_level}' (expected 0-3 or DEBUG|INFO|WARN|ERROR)" ;;
+    esac
+}
+
 _check_module_log_level() {
     local level="$1"
     local module="$2"
@@ -126,9 +138,11 @@ _check_module_log_level() {
     fi
     
     # Fall back to global LOG_LEVEL
+    local numeric_log_level
+    numeric_log_level=$(_log_level_value "${LOG_LEVEL}")
     case "${level}" in
-        DEBUG) [[ "${LOG_LEVEL}" -ge 3 ]] && return 0 || return 1 ;;
-        INFO) [[ "${LOG_LEVEL}" -ge 1 ]] && return 0 || return 1 ;;
+        DEBUG) [[ "${numeric_log_level}" -ge 3 ]] && return 0 || return 1 ;;
+        INFO) [[ "${numeric_log_level}" -ge 1 ]] && return 0 || return 1 ;;
         *) return 0 ;;  # WARN, ERROR, FATAL always shown
     esac
 }

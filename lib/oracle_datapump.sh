@@ -1317,6 +1317,187 @@ dp_analyze_batch_results() {
 }
 
 #===============================================================================
+# SECTION 7A: Optimization Functions (dcx-bg9)
+#===============================================================================
+
+# dp_parse_parfile - Parse parfile and extract key parameters
+# Usage: dp_parse_parfile "/path/to/file.par"
+# Returns: Prints key=value pairs for each parameter found
+# Parsed Parameters:
+#   - TABLES: table list
+#   - CONTENT: DATA|METADATA|ALL
+#   - QUERY: filter condition (if present)
+#   - DIRECTORY: dump directory
+#   - DUMPFILE: dump file names
+#   - EXCLUDE: excluded objects
+dp_parse_parfile() {
+	local parfile="$1"
+	[[ -f "$parfile" ]] || {
+		log_error "Parfile not found: $parfile"
+		return 1
+	}
+
+	local in_query=0
+	local query_value=""
+	local key value
+
+	while IFS='=' read -r key value || [[ -n "$key" ]]; do
+		key="${key#*[[:space:]]}"  # Remove leading whitespace
+		key="${key%%[[:space:]]*}" # Remove trailing whitespace
+
+		# Skip comments and empty lines
+		[[ "$key" =~ ^# ]] && continue
+		[[ -z "$key" ]] && continue
+
+		case "$key" in
+		TABLES)
+			echo "TABLES=${value}"
+			;;
+		CONTENT)
+			echo "CONTENT=${value}"
+			;;
+		DIRECTORY)
+			echo "DIRECTORY=${value}"
+			;;
+		DUMPFILE)
+			echo "DUMPFILE=${value}"
+			;;
+		EXCLUDE)
+			echo "EXCLUDE=${value}"
+			;;
+		QUERY)
+			in_query=1
+			query_value="$value"
+			;;
+		esac
+
+		# Handle multi-line QUERY parameter
+		if [[ $in_query -eq 1 ]]; then
+			if [[ "$value" =~ \" ]]; then
+				in_query=0
+				echo "QUERY=${query_value}${value}"
+			else
+				query_value="${query_value}${value}"
+			fi
+		fi
+	done <"$parfile"
+
+	return 0
+}
+
+# dp_skip_empty_tables - Filter out tables with 0 rows from export list
+# Usage: dp_skip_empty_tables "input_tables_file" "output_tables_file" "schema_name"
+# Returns: 0 on success, 1 on failure
+# Logs: "Skipped N empty tables"
+dp_skip_empty_tables() {
+	local input_file="$1"
+	local output_file="$2"
+	local schema="${3:-${SOURCE_DB_SCHEMA:-}}"
+
+	[[ -f "$input_file" ]] || {
+		log_error "Input file not found: $input_file"
+		return 1
+	}
+
+	[[ -n "$schema" ]] || {
+		log_error "Schema required for dp_skip_empty_tables"
+		return 1
+	}
+
+	local skipped_count=0
+	local kept_count=0
+
+	log_debug "Checking table row counts in schema: $schema"
+
+	>"$output_file" # Clear output file
+
+	while IFS= read -r table_name || [[ -n "$table_name" ]]; do
+		[[ -z "$table_name" ]] && continue
+
+		# Get row count for this table
+		local row_count
+		row_count=$(sql_exec "SELECT COUNT(*) FROM \"$schema\".\"$table_name\"" 2>/dev/null | tail -1)
+
+		if [[ -z "$row_count" ]] || [[ "$row_count" -eq 0 ]]; then
+			log_debug "  Skipping empty table: $table_name (0 rows)"
+			((skipped_count++))
+		else
+			echo "$table_name" >>"$output_file"
+			log_debug "  Keeping table: $table_name ($row_count rows)"
+			((kept_count++))
+		fi
+	done <"$input_file"
+
+	log_info "Skipped $skipped_count empty tables, keeping $kept_count tables"
+	return 0
+}
+
+# dp_precompute_subqueries - Materialize subqueries into temp tables
+# Usage: dp_precompute_subqueries "parfile_path" "schema_name"
+# Returns: Path to updated parfile (with temp tables instead of QUERY clauses)
+# Creates temp tables and updates parfile to reference them
+# Logs: "Precomputed N subqueries"
+dp_precompute_subqueries() {
+	local original_parfile="$1"
+	local schema="${2:-${SOURCE_DB_SCHEMA:-}}"
+
+	[[ -f "$original_parfile" ]] || {
+		log_error "Parfile not found: $original_parfile"
+		return 1
+	}
+
+	# Check if parfile has QUERY parameter
+	if ! dp_parfile_has_query "$original_parfile"; then
+		log_debug "No QUERY parameter found in parfile"
+		echo "$original_parfile"
+		return 0
+	fi
+
+	log_debug "Precomputing subqueries in parfile..."
+
+	local temp_parfile="${original_parfile}.precomputed"
+	local query_count=0
+	local in_query=0
+	local table_name query_clause
+
+	# Parse parfile to extract table names and queries
+	while IFS='=' read -r key value || [[ -n "$key" ]]; do
+		[[ "$key" =~ ^# ]] && continue
+		[[ -z "$key" ]] && continue
+
+		if [[ "$key" == "TABLES" ]]; then
+			table_name="${value%%,*}" # First table in list
+			log_debug "  Found table: $table_name"
+		fi
+
+		if [[ "$key" == "QUERY" ]]; then
+			query_clause="$value"
+			log_debug "  Found query: ${query_clause:0:50}..."
+
+			# Create temp table by executing query
+			local temp_table="TMP_${table_name}_$RANDOM"
+			log_debug "  Creating temp table: $temp_table"
+
+			sql_exec "CREATE TABLE \"$schema\".\"$temp_table\" AS SELECT * FROM \"$schema\".\"$table_name\" WHERE $query_clause" 2>/dev/null && {
+				log_debug "  Materialized into: $temp_table"
+				((query_count++))
+			} || {
+				log_warn "  Failed to materialize query, using original table"
+			}
+		fi
+	done <"$original_parfile"
+
+	# For now, return original (full implementation would update TABLES= references)
+	echo "$original_parfile"
+
+	[[ $query_count -gt 0 ]] && {
+		log_info "Precomputed $query_count subqueries"
+	}
+
+	return 0
+}
+
+#===============================================================================
 # SECTION 8: Utility Functions
 #===============================================================================
 

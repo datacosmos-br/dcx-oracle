@@ -170,6 +170,7 @@ touch "${MOCK_AUTOBACKUP}/c-1234567890-20260113-01"
 
 run_test "detect_dbid finds unique DBID" bash -c '
     source "'"${PLUGIN_LIB}"'/oracle.sh"
+    oracle_require rman
     result=$(oracle_rman_detect_dbid "'"${MOCK_AUTOBACKUP}"'")
     [[ "${result}" == "1234567890" ]]
 '
@@ -179,6 +180,7 @@ touch "${MOCK_AUTOBACKUP}/c-9876543210-20260113-00"
 
 run_test "detect_dbid returns rc=2 for multiple DBIDs" bash -c '
     source "'"${PLUGIN_LIB}"'/oracle.sh"
+    oracle_require rman
     oracle_rman_detect_dbid "'"${MOCK_AUTOBACKUP}"'"
     [[ $? -eq 2 ]]
 '
@@ -198,6 +200,7 @@ touch "${MOCK_BACKUP_ROOT}/autobackup/c-1111111111-20260113-00"
 
 run_test "backup_discover finds direct autobackup" bash -c '
     source "'"${PLUGIN_LIB}"'/oracle.sh"
+    oracle_require rman
     AUTO=""
     oracle_rman_backup_discover "'"${MOCK_BACKUP_ROOT}"'"
     [[ -n "${AUTO}" ]]
@@ -212,6 +215,7 @@ touch "${MOCK_BACKUP_ROOT2}/RMAN_LOCAL_FULL/PRODDB/autobackup/c-2222222222-20260
 
 run_test "backup_discover finds RMAN_LOCAL_FULL structure" bash -c '
     source "'"${PLUGIN_LIB}"'/oracle.sh"
+    oracle_require rman
     AUTO=""
     DBID=""
     oracle_rman_backup_discover "'"${MOCK_BACKUP_ROOT2}"'"
@@ -229,6 +233,7 @@ echo "=== Testing RMAN Channel Functions ==="
 
 run_test "oracle_rman_auto_channels sets variable" bash -c '
     source "'"${PLUGIN_LIB}"'/oracle.sh"
+    oracle_require rman
     unset RMAN_CHANNELS
     oracle_rman_auto_channels
     [[ -n "${RMAN_CHANNELS}" && "${RMAN_CHANNELS}" =~ ^[0-9]+$ ]]
@@ -236,6 +241,7 @@ run_test "oracle_rman_auto_channels sets variable" bash -c '
 
 run_test "rman_channels_alloc generates commands" bash -c '
     source "'"${PLUGIN_LIB}"'/oracle.sh"
+    oracle_require rman
     RMAN_CHANNELS=2
     result=$(oracle_rman_channels_alloc)
     echo "${result}" | grep -q "allocate channel c1"
@@ -244,6 +250,7 @@ run_test "rman_channels_alloc generates commands" bash -c '
 
 run_test "rman_channels_release generates commands" bash -c '
     source "'"${PLUGIN_LIB}"'/oracle.sh"
+    oracle_require rman
     RMAN_CHANNELS=2
     result=$(oracle_rman_channels_release)
     echo "${result}" | grep -q "release channel c1"

@@ -75,7 +75,10 @@ run_test "report_confirm returns 0 with REPORT_AUTO_YES" '
 
 # Test 7: report_finalize completes
 run_test "report_finalize completes" '
+    final_logdir="$TEST_TEMP_DIR/logs/finalize_test"
+    report_init "Finalize Test" "$final_logdir"
     report_finalize
+    [[ -n "$(find "$final_logdir" -name "*.md" 2>/dev/null)" ]]
 '
 
 # Test 8: Report markdown file generation

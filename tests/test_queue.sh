@@ -22,37 +22,34 @@ echo ""
 # Source queue.sh
 source "${PLUGIN_LIB}/queue.sh"
 
-# Test 1: queue_init creates directories
-run_test "queue_init creates required directories" '
-    queue_dir="$TEST_TEMP_DIR/queue_test"
-    mkdir -p "$queue_dir"
-    export QUEUE_DIR="$queue_dir"
-    queue_init "$queue_dir" 2
-    [[ -d "$queue_dir" ]]
+# Test 1: queue_init configures queue state
+run_test "queue_init configures concurrency" '
+    queue_init 2
+    [[ "$QUEUE_MAX_CONCURRENT" == "2" ]]
+    [[ "$QUEUE_ACTIVE_COUNT" == "0" ]]
 '
 
 # Test 2: queue_add adds job
 run_test "queue_add creates job file" '
     job_id=$(queue_add "echo test" "test_job")
-    [[ -n "$job_id" ]] || true
+    [[ -n "$job_id" ]]
 '
 
 # Test 3: queue_status returns something
 run_test "queue_status returns status" '
-    status=$(queue_status 2>&1) || true
-    [[ -n "$status" ]] || true
+    status=$(queue_status 2>&1)
+    [[ "$status" == active=* ]]
 '
 
 # Test 4: queue_wait completes
 run_test "queue_wait completes without error" '
-    queue_wait 2>&1 || true
+    queue_wait 2>&1
 '
 
 # Test 5: Parallel degree configuration
 run_test "queue accepts parallel degree parameter" '
-    queue_dir2="$TEST_TEMP_DIR/queue_test2"
-    mkdir -p "$queue_dir2"
-    queue_init "$queue_dir2" 4
+    queue_init 4
+    [[ "$QUEUE_MAX_CONCURRENT" == "4" ]]
 '
 
 echo ""

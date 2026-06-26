@@ -27,9 +27,9 @@ _QUEUE_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Global Queue State
 #===============================================================================
 
-declare -gA QUEUE_PID_TO_TYPE      # PID -> job type
-declare -gA QUEUE_PID_TO_INDEX     # PID -> job index
-declare -gA QUEUE_PID_TO_NAME      # PID -> job name
+declare -gA QUEUE_PID_TO_TYPE=()   # PID -> job type
+declare -gA QUEUE_PID_TO_INDEX=()  # PID -> job index
+declare -gA QUEUE_PID_TO_NAME=()   # PID -> job name
 
 QUEUE_MAX_CONCURRENT="${QUEUE_MAX_CONCURRENT:-4}"
 QUEUE_ACTIVE_COUNT=0
@@ -46,6 +46,28 @@ queue_init() {
     QUEUE_PID_TO_TYPE=()
     QUEUE_PID_TO_INDEX=()
     QUEUE_PID_TO_NAME=()
+}
+
+# queue_add - Register a deferred queue item and return its id.
+# Usage: queue_add "command" ["name"]
+queue_add() {
+    local command="${1?ERROR: queue_add requires command parameter}"
+    local name="${2:-job}"
+    local job_id
+    job_id="$(date +%s%N)_${name//[^a-zA-Z0-9_]/_}"
+    QUEUE_PID_TO_TYPE["${job_id}"]="deferred"
+    QUEUE_PID_TO_INDEX["${job_id}"]="${command}"
+    QUEUE_PID_TO_NAME["${job_id}"]="${name}"
+    echo "${job_id}"
+}
+
+# queue_status - Print current queue state.
+# Usage: queue_status
+queue_status() {
+    printf 'active=%s max=%s queued=%s\n' \
+        "${QUEUE_ACTIVE_COUNT}" \
+        "${QUEUE_MAX_CONCURRENT}" \
+        "${#QUEUE_PID_TO_TYPE[@]}"
 }
 
 # queue_can_start - Check if queue has capacity
@@ -102,6 +124,12 @@ queue_wait_all() {
         completed_pid=$(queue_wait_any)
         [[ -n "${completed_pid}" ]] && queue_unregister_job "${completed_pid}"
     done
+}
+
+# queue_wait - Public wait API for all active jobs.
+# Usage: queue_wait
+queue_wait() {
+    queue_wait_all
 }
 
 # queue_get_job_info - Get info about a job

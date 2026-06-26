@@ -877,6 +877,8 @@ _report_render_module_section() {
 report_finalize() {
     local format="${1:-${REPORT_OUTPUT_FORMAT}}"
 
+    [[ "${_R_INITIALIZED}" -eq 1 ]] || die "ERROR: report_init must be called before report_finalize"
+
     # Console summary
     report_summary
 
